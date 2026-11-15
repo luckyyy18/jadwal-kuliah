@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JadwalKuliah — Sistem Data Jadwal Kuliah</title>
+  <meta name="description" content="Sistem data jadwal kuliah: catat, filter, edit, dan hapus jadwal. SKPL_05." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            ink: '#0b1020',
+            panel: '#121a2e',
+            line: '#22304d',
+            accent: '#6366f1'
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body class="min-h-screen bg-ink text-slate-200 antialiased">
+
+  <!-- ============ HEADER ============ -->
+  <header class="border-b border-line/70 bg-panel/60 backdrop-blur">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-4">
+      <div class="flex items-center gap-3">
+        <div class="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-lg font-black text-white">JK</div>
+        <div>
+          <h1 class="text-base font-bold tracking-tight text-white">JadwalKuliah</h1>
+          <p class="text-xs text-slate-400">Sistem Data Jadwal Kuliah · SKPL_05</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold text-emerald-300" id="status-cloud">Cloud Supabase</span>
+        <span class="rounded-full border border-indigo-400/30 bg-indigo-400/10 px-3 py-1 text-[11px] font-semibold text-indigo-300">Anti-XSS</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-6xl px-5 py-7">
+
+    <!-- ============ BANNER MODE DEMO ============ -->
+    <div id="config-banner" class="mb-6 hidden rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+      <strong class="font-semibold">Mode demo (penyimpanan lokal).</strong>
+      Supabase belum dikonfigurasi — isi <code class="rounded bg-black/30 px-1.5 py-0.5 text-xs">js/config.js</code>
+      dengan Project URL &amp; anon key agar data tersimpan di cloud.
+    </div>
+
+    <!-- ============ STATISTIK (REQ-02) ============ -->
+    <section class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div class="rounded-2xl border border-line bg-panel p-5">
+        <p class="text-xs font-medium uppercase tracking-wider text-slate-400">Total Jadwal</p>
+        <p class="mt-2 text-3xl font-extrabold text-white" id="stat-total">0</p>
+        <p class="mt-1 text-xs text-slate-500">mata kuliah terdaftar</p>
+      </div>
+      <div class="rounded-2xl border border-line bg-panel p-5">
+        <p class="text-xs font-medium uppercase tracking-wider text-slate-400">Total SKS</p>
+        <p class="mt-2 text-3xl font-extrabold text-indigo-300" id="stat-sks">0</p>
+        <p class="mt-1 text-xs text-slate-500">beban SKS seluruh jadwal</p>
+      </div>
+      <div class="rounded-2xl border border-line bg-panel p-5">
+        <p class="text-xs font-medium uppercase tracking-wider text-slate-400">Hari Terpadat</p>
+        <p class="mt-2 text-3xl font-extrabold text-emerald-300" id="stat-hari">—</p>
+        <p class="mt-1 text-xs text-slate-500" id="stat-hari-info">belum ada data</p>
+      </div>
+    </section>
+
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+
+      <!-- ============ FORM (REQ-01 / REQ-04) ============ -->
+      <section class="lg:col-span-1">
+        <div class="rounded-2xl border border-line bg-panel p-5">
+          <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-white" id="form-title">Catat Jadwal</h2>
+            <span class="rounded-md bg-indigo-500/15 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">REQ-01</span>
+          </div>
+
+          <form id="form-jadwal" class="space-y-3" novalidate>
+            <div>
+              <label for="f-mata-kuliah" class="mb-1 block text-xs font-medium text-slate-400">Mata Kuliah</label>
+              <input id="f-mata-kuliah" name="mata_kuliah" type="text" maxlength="80" required
+                     placeholder="Contoh: Pemrograman Web"
+                     class="w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+            </div>
+
+            <div>
+              <label for="f-dosen" class="mb-1 block text-xs font-medium text-slate-400">Dosen</label>
+              <input id="f-dosen" name="dosen" type="text" maxlength="80" required
+                     placeholder="Nama dosen pengampu"
+                     class="w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="f-hari" class="mb-1 block text-xs font-medium text-slate-400">Hari</label>
+                <select id="f-hari" name="hari" required
+                        class="w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                  <option value="">Pilih…</option>
+                  <option>Senin</option>
+                  <option>Selasa</option>
+                  <option>Rabu</option>
+                  <option>Kamis</option>
+                  <option>Jumat</option>
+                  <option>Sabtu</option>
+                </select>
+              </div>
+              <div>
+                <label for="f-sks" class="mb-1 block text-xs font-medium text-slate-400">SKS</label>
+                <input id="f-sks" name="sks" type="number" min="1" max="6" step="1" required
+                       placeholder="3"
+                       class="w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="f-jam-mulai" class="mb-1 block text-xs font-medium text-slate-400">Jam Mulai</label>
+                <input id="f-jam-mulai" name="jam_mulai" type="time" required
+                       class="w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label for="f-jam-selesai" class="mb-1 block text-xs font-medium text-slate-400">Jam Selesai</label>
+                <input id="f-jam-selesai" name="jam_selesai" type="time" required
+                       class="w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+              </div>
+            </div>
+
+            <div>
+              <label for="f-ruang" class="mb-1 block text-xs font-medium text-slate-400">Ruang</label>
+              <input id="f-ruang" name="ruang" type="text" maxlength="40" required
+                     placeholder="Contoh: Lab RPL 1"
+                     class="w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+            </div>
+
+            <p id="form-message" class="hidden rounded-lg px-3 py-2 text-xs font-medium" role="alert" aria-live="polite"></p>
+
+            <div class="flex gap-2 pt-1">
+              <button type="submit" id="btn-submit"
+                      class="flex-1 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/60 disabled:cursor-not-allowed disabled:opacity-60">
+                Simpan Jadwal
+              </button>
+              <button type="button" id="btn-cancel"
+                      class="hidden rounded-lg border border-line px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/5">
+                Batal
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="mt-4 rounded-2xl border border-line/70 bg-panel/50 p-4 text-xs leading-relaxed text-slate-400">
+          <p class="mb-1 font-semibold text-slate-300">Pagar keamanan aktif</p>
+          <ul class="list-inside list-disc space-y-0.5">
+            <li>Validasi SKS &amp; jam (TC-01, TC-03)</li>
+            <li>Anti-XSS: render via <code class="text-indigo-300">textContent</code></li>
+            <li>Hanya anon key publik yang dipakai</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ============ RIWAYAT (REQ-02/03/04) ============ -->
+      <section class="lg:col-span-2">
+        <div class="rounded-2xl border border-line bg-panel">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
+            <div>
+              <h2 class="text-sm font-bold uppercase tracking-wider text-white">Riwayat Jadwal</h2>
+              <p class="text-xs text-slate-500" id="table-info">memuat data…</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <select id="filter-hari"
+                      class="rounded-lg border border-line bg-ink px-3 py-2 text-xs text-white outline-none focus:border-indigo-500">
+                <option value="">Semua Hari</option>
+                <option>Senin</option>
+                <option>Selasa</option>
+                <option>Rabu</option>
+                <option>Kamis</option>
+                <option>Jumat</option>
+                <option>Sabtu</option>
+              </select>
+              <input id="filter-cari" type="search" placeholder="Cari matkul / dosen / ruang…"
+                     class="w-56 rounded-lg border border-line bg-ink px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-indigo-500" />
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[720px] text-left text-sm">
+              <thead>
+                <tr class="border-b border-line text-[11px] uppercase tracking-wider text-slate-500">
+                  <th class="px-5 py-3 font-semibold">Mata Kuliah</th>
+                  <th class="px-4 py-3 font-semibold">Dosen</th>
+                  <th class="px-4 py-3 font-semibold">Hari</th>
+                  <th class="px-4 py-3 font-semibold">Jam</th>
+                  <th class="px-4 py-3 font-semibold">Ruang</th>
+                  <th class="px-4 py-3 text-center font-semibold">SKS</th>
+                  <th class="px-5 py-3 text-right font-semibold">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tbody" class="divide-y divide-line/60"></tbody>
+            </table>
+          </div>
+
+          <div id="empty-state" class="hidden px-5 py-12 text-center">
+            <p class="text-sm font-medium text-slate-300">Belum ada jadwal yang cocok</p>
+            <p class="mt-1 text-xs text-slate-500">Ubah filter, atau catat jadwal baru di form.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="mt-8 border-t border-line/60 pt-4 text-center text-[11px] text-slate-500">
+      SKPL_05 · Sistem Data Jadwal Kuliah · HTML5 + Tailwind + Vanilla JS + Supabase
+    </footer>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
